@@ -71,6 +71,28 @@ Same pattern. Add to their MCP config with the command above.
 }
 ```
 
+### HTTP Streamable (remote / shared)
+
+Start the HTTP server:
+
+```bash
+npx @clint419/websearch-mcp-server-http
+# or: npm run start:http
+```
+
+Add to MCP config:
+
+```json
+{
+  "mcpServers": {
+    "websearch": {
+      "url": "http://127.0.0.1:3000/mcp",
+      "transport": "streamable-http"
+    }
+  }
+}
+```
+
 ## Environment Variables
 
 | Variable | Values | Default | Description |
@@ -78,12 +100,16 @@ Same pattern. Add to their MCP config with the command above.
 | `WEBSEARCH_PROVIDER` | `exa`, `parallel` | `exa` | Which upstream to use |
 | `EXA_API_KEY` | string | (none) | Optional Exa API key |
 | `PARALLEL_API_KEY` | string | (none) | Optional Parallel API key |
+| `MCP_PORT` | number | `3000` | HTTP Streamable listen port |
+| `MCP_HOST` | string | `127.0.0.1` | HTTP Streamable bind address |
 
 ## Source Structure
 
 ```
 src/
-  index.ts      – MCP server entry: tool registration, main loop
+  index.ts      – stdio MCP entry point
+  http.ts       – HTTP Streamable MCP entry point (stateful)
+  server.ts     – shared MCP server: tool registration
   websearch.ts  – Exa/Parallel MCP client with retry + failover
   webfetch.ts   – URL content fetcher (HTML→text/markdown conversion)
 ```
