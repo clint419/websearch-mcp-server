@@ -8,6 +8,9 @@ const EXA_URL = "https://mcp.exa.ai/mcp";
 const PARALLEL_URL = "https://search.parallel.ai/mcp";
 
 const PROVIDER = (process.env.WEBSEARCH_PROVIDER || "exa") as "exa" | "parallel";
+const MAX_RETRIES = 2;
+const BASE_DELAY_MS = 1000;
+const TIMEOUT_MS = 25_000;
 
 interface McpRpcRequest {
   jsonrpc: "2.0";
@@ -51,6 +54,27 @@ function parseResponse(body: string): string | undefined {
   return undefined;
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+        console.error(`[${label}] attempt ${attempt + 1} failed: ${lastError.message}, retrying in ${delay}ms`);
+        await sleep(delay);
+      }
+    }
+  }
+  throw lastError!;
+}
+
 async function callExa(args: {
   query: string;
   numResults?: number;
@@ -71,7 +95,7 @@ async function callExa(args: {
   });
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const res = await fetch(url, {
@@ -116,7 +140,7 @@ async function callParallel(args: {
   });
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const res = await fetch(PARALLEL_URL, {
@@ -134,6 +158,44 @@ async function callParallel(args: {
   }
 }
 
+type ExaArgs = {
+  query: string;
+  numResults?: number;
+  type?: string;
+  livecrawl?: string;
+  contextMaxCharacters?: number;
+};
+
+type ParallelArgs = {
+  query: string;
+  numResults?: number;
+};
+
+async function searchWithFailover(
+  primary: "exa" | "parallel",
+  exaArgs: ExaArgs,
+  parallelArgs: ParallelArgs,
+): Promise<string> {
+  const tryExa = () => retry(() => callExa(exaArgs), "exa");
+  const tryParallel = () => retry(() => callParallel(parallelArgs), "parallel");
+
+  if (primary === "exa") {
+    try {
+      return await tryExa();
+    } catch (firstError) {
+      console.error(`[failover] exa failed, trying parallel: ${firstError instanceof Error ? firstError.message : firstError}`);
+      return await tryParallel();
+    }
+  }
+
+  try {
+    return await tryParallel();
+  } catch (firstError) {
+    console.error(`[failover] parallel failed, trying exa: ${firstError instanceof Error ? firstError.message : firstError}`);
+    return await tryExa();
+  }
+}
+
 async function search(args: {
   query: string;
   numResults?: number;
@@ -141,18 +203,25 @@ async function search(args: {
   livecrawl?: string;
   contextMaxCharacters?: number;
 }): Promise<string> {
-  if (PROVIDER === "parallel") {
-    return callParallel({
-      query: args.query,
-      numResults: args.numResults,
-    });
-  }
-  return callExa(args);
+  const exaArgs: ExaArgs = {
+    query: args.query,
+    numResults: args.numResults,
+    type: args.type,
+    livecrawl: args.livecrawl,
+    contextMaxCharacters: args.contextMaxCharacters,
+  };
+
+  const parallelArgs: ParallelArgs = {
+    query: args.query,
+    numResults: args.numResults,
+  };
+
+  return searchWithFailover(PROVIDER, exaArgs, parallelArgs);
 }
 
 const server = new McpServer({
   name: "websearch",
-  version: "1.0.0",
+  version: "1.1.0",
 });
 
 server.tool(
@@ -179,7 +248,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`websearch-mcp-server running (provider: ${PROVIDER})`);
+  console.error(`websearch-mcp-server running (provider: ${PROVIDER}, retries: ${MAX_RETRIES}, failover: enabled)`);
 }
 
 main().catch((err) => {

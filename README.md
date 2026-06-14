@@ -98,15 +98,19 @@ If running from source instead of npm:
 AI Client (Cursor/Claude Code/etc.)
     ↓ stdio JSON-RPC
 [websearch-mcp-server]
+    ↓ retry + failover
     ↓ HTTP POST JSON-RPC 2.0
 Exa / Parallel remote MCP endpoint
     ↓ results
 [websearch-mcp-server] → AI Client
 ```
 
-- No API key required by default (uses free tier)
-- 25s timeout per request
-- Supports both JSON and SSE response formats
+### Reliability
+
+- **Retry**: Up to 2 retries with exponential backoff (1s, 2s) on network errors
+- **Failover**: If primary provider fails, automatically tries the other provider
+- **Timeout**: 25s per request
+- **Free tier**: No API key required by default
 
 ## License
 
