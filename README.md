@@ -7,7 +7,7 @@ Standalone MCP server for Exa/Parallel free web search. Works with Cursor, Claud
 ### From npm (recommended)
 
 ```bash
-npm install -g websearch-mcp-server
+npm install -g @clint419/websearch-mcp-server
 ```
 
 ### From source
@@ -30,10 +30,7 @@ Add to `~/.cursor/mcp.json`:
   "mcpServers": {
     "websearch": {
       "command": "npx",
-      "args": ["-y", "websearch-mcp-server"],
-      "env": {
-        "WEBSEARCH_PROVIDER": "exa"
-      }
+      "args": ["-y", "@clint419/websearch-mcp-server"]
     }
   }
 }
@@ -48,10 +45,7 @@ Add to `~/.claude/mcp.json`:
   "mcpServers": {
     "websearch": {
       "command": "npx",
-      "args": ["-y", "websearch-mcp-server"],
-      "env": {
-        "WEBSEARCH_PROVIDER": "exa"
-      }
+      "args": ["-y", "@clint419/websearch-mcp-server"]
     }
   }
 }
