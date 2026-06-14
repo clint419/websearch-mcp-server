@@ -7,11 +7,24 @@
   "bin": {
     "websearch-mcp": "dist/server.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "prepublishOnly": "npm run build"
   },
+  "keywords": [
+    "mcp",
+    "websearch",
+    "exa",
+    "parallel",
+    "ai",
+    "search"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
