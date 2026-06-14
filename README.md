@@ -13,7 +13,7 @@ npm install -g websearch-mcp-server
 ### From source
 
 ```bash
-git clone https://github.com/your-user/websearch-mcp-server.git
+git clone https://github.com/clint419/websearch-mcp-server.git
 cd websearch-mcp-server
 npm install
 npm run build
