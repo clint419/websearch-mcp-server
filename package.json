@@ -1,0 +1,27 @@
+{
+  "name": "websearch-mcp-server",
+  "version": "1.0.0",
+  "description": "Standalone MCP server for Exa/Parallel free web search",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "websearch-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
