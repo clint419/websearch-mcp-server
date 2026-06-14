@@ -26,10 +26,13 @@
     "search"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "htmlparser2": "^12.0.0",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0"
   },

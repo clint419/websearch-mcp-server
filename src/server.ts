@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { webfetch, MAX_TIMEOUT_SECONDS } from "./webfetch.js";
 
 const EXA_URL = "https://mcp.exa.ai/mcp";
 const PARALLEL_URL = "https://search.parallel.ai/mcp";
@@ -241,6 +242,25 @@ server.tool(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { content: [{ type: "text" as const, text: `Search failed: ${message}` }], isError: true };
+    }
+  },
+);
+
+server.tool(
+  "webfetch",
+  "Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default.",
+  {
+    url: z.string().describe("The HTTP or HTTPS URL to fetch content from"),
+    format: z.enum(["text", "markdown", "html"]).optional().describe("The format to return the content in (default: markdown)"),
+    timeout: z.number().positive().max(MAX_TIMEOUT_SECONDS).optional().describe(`Optional timeout in seconds (max: ${MAX_TIMEOUT_SECONDS})`),
+  },
+  async (args) => {
+    try {
+      const result = await webfetch(args.url, args.format ?? "markdown", args.timeout);
+      return { content: [{ type: "text" as const, text: result.output }] };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { content: [{ type: "text" as const, text: `Fetch failed: ${message}` }], isError: true };
     }
   },
 );
