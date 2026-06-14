@@ -3,9 +3,9 @@
   "version": "1.0.1",
   "description": "Standalone MCP server for Exa/Parallel free web search",
   "type": "module",
-  "main": "dist/server.js",
+  "main": "dist/index.js",
   "bin": {
-    "websearch-mcp": "dist/server.js"
+    "websearch-mcp": "dist/index.js"
   },
   "files": [
     "dist",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/server.js",
+    "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

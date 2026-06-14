@@ -1,6 +1,13 @@
 # websearch-mcp-server
 
-Standalone MCP server for Exa/Parallel free web search. Works with Cursor, Claude Code, Cline, Continue, opencode, and any MCP-compatible AI client.
+Standalone MCP server for Exa/Parallel free web search + URL content fetching. Works with Cursor, Claude Code, Cline, Continue, opencode, and any MCP-compatible AI client.
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `websearch` | Search the web via Exa or Parallel free MCP endpoints |
+| `webfetch` | Fetch content from an HTTP/HTTPS URL as text/markdown/html |
 
 ## Install
 
@@ -57,12 +64,10 @@ Same pattern. Add to their MCP config with the command above.
 
 ### Local development
 
-If running from source instead of npm:
-
 ```json
 {
   "command": "npx",
-  "args": ["tsx", "/path/to/websearch-mcp-server/src/server.ts"]
+  "args": ["tsx", "/path/to/websearch-mcp-server/src/index.ts"]
 }
 ```
 
@@ -74,32 +79,16 @@ If running from source instead of npm:
 | `EXA_API_KEY` | string | (none) | Optional Exa API key |
 | `PARALLEL_API_KEY` | string | (none) | Optional Parallel API key |
 
-## Tool
-
-**`websearch`** - Search the web
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `query` | string | yes | - | Search query |
-| `numResults` | number | no | 8 | Number of results (max: 20) |
-| `type` | string | no | `auto` | `auto`, `fast`, `deep` |
-| `livecrawl` | string | no | `fallback` | `fallback`, `preferred` |
-| `contextMaxCharacters` | number | no | 10000 | Max context chars for LLM |
-
-## How It Works
+## Source Structure
 
 ```
-AI Client (Cursor/Claude Code/etc.)
-    ↓ stdio JSON-RPC
-[websearch-mcp-server]
-    ↓ retry + failover
-    ↓ HTTP POST JSON-RPC 2.0
-Exa / Parallel remote MCP endpoint
-    ↓ results
-[websearch-mcp-server] → AI Client
+src/
+  index.ts      – MCP server entry: tool registration, main loop
+  websearch.ts  – Exa/Parallel MCP client with retry + failover
+  webfetch.ts   – URL content fetcher (HTML→text/markdown conversion)
 ```
 
-### Reliability
+## Reliability
 
 - **Retry**: Up to 2 retries with exponential backoff (1s, 2s) on network errors
 - **Failover**: If primary provider fails, automatically tries the other provider
