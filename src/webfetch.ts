@@ -4,6 +4,8 @@ import TurndownService from "turndown"
 export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 export const DEFAULT_TIMEOUT_SECONDS = 30
 export const MAX_TIMEOUT_SECONDS = 120
+const MAX_RETRIES = 2
+const BASE_DELAY_MS = 1000
 
 type Format = "text" | "markdown" | "html"
 
@@ -88,71 +90,94 @@ export function convertHTMLToMarkdown(html: string) {
   return turndown.turndown(html)
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function retry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastError: Error | undefined
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+        console.error(`[${label}] attempt ${attempt + 1} failed: ${lastError.message}, retrying in ${delay}ms`)
+        await sleep(delay)
+      }
+    }
+  }
+  throw lastError!
+}
+
 export async function webfetch(urlStr: string, format: Format = "markdown", timeoutSec = DEFAULT_TIMEOUT_SECONDS) {
   const url = new URL(urlStr)
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("URL must use http:// or https://")
   }
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutSec * 1000)
+  return retry(async () => {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutSec * 1000)
 
-  try {
-    let res = await fetch(urlStr, {
-      headers: headers(format),
-      signal: controller.signal,
-      redirect: "follow",
-    })
-
-    if (res.status === 403 && res.headers.get("cf-mitigated") === "challenge") {
-      console.error("[webfetch] Cloudflare challenge detected, retrying without browser UA")
-      res = await fetch(urlStr, {
-        headers: {
-          ...headers(format),
-          "User-Agent": "opencode",
-        },
+    try {
+      let res = await fetch(urlStr, {
+        headers: headers(format),
         signal: controller.signal,
         redirect: "follow",
       })
+
+      if (res.status === 403 && res.headers.get("cf-mitigated") === "challenge") {
+        console.error("[webfetch] Cloudflare challenge detected, retrying without browser UA")
+        res = await fetch(urlStr, {
+          headers: {
+            ...headers(format),
+            "User-Agent": "opencode",
+          },
+          signal: controller.signal,
+          redirect: "follow",
+        })
+      }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+
+      const contentType = res.headers.get("content-type") || ""
+      const mime = mimeFrom(contentType)
+
+      if (isImageAttachment(mime)) throw new Error(`Unsupported fetched image content type: ${mime}`)
+      if (!isTextualMime(mime)) throw new Error(`Unsupported fetched file content type: ${mime}`)
+
+      const contentLength = res.headers.get("content-length")
+      if (contentLength && Number.parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
+        throw new Error(`Response too large (exceeds ${MAX_RESPONSE_BYTES} byte limit)`)
+      }
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error("Response body is not readable")
+
+      const chunks: Uint8Array[] = []
+      let size = 0
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        size += value.byteLength
+        if (size > MAX_RESPONSE_BYTES) throw new Error(`Response too large (exceeds ${MAX_RESPONSE_BYTES} byte limit)`)
+        chunks.push(value)
+      }
+
+      const body = Buffer.concat(chunks)
+      const content = convert(new TextDecoder().decode(body), contentType, format)
+
+      return {
+        url: urlStr,
+        contentType,
+        format,
+        output: content,
+      }
+    } finally {
+      clearTimeout(timeout)
     }
-
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
-
-    const contentType = res.headers.get("content-type") || ""
-    const mime = mimeFrom(contentType)
-
-    if (isImageAttachment(mime)) throw new Error(`Unsupported fetched image content type: ${mime}`)
-    if (!isTextualMime(mime)) throw new Error(`Unsupported fetched file content type: ${mime}`)
-
-    const contentLength = res.headers.get("content-length")
-    if (contentLength && Number.parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
-      throw new Error(`Response too large (exceeds ${MAX_RESPONSE_BYTES} byte limit)`)
-    }
-
-    const reader = res.body?.getReader()
-    if (!reader) throw new Error("Response body is not readable")
-
-    const chunks: Uint8Array[] = []
-    let size = 0
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      size += value.byteLength
-      if (size > MAX_RESPONSE_BYTES) throw new Error(`Response too large (exceeds ${MAX_RESPONSE_BYTES} byte limit)`)
-      chunks.push(value)
-    }
-
-    const body = Buffer.concat(chunks)
-    const content = convert(new TextDecoder().decode(body), contentType, format)
-
-    return {
-      url: urlStr,
-      contentType,
-      format,
-      output: content,
-    }
-  } finally {
-    clearTimeout(timeout)
-  }
+  }, "webfetch")
 }
