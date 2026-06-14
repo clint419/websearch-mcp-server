@@ -34,7 +34,7 @@ function mimeFrom(contentType: string) {
 }
 
 function isImageAttachment(mime: string) {
-  return mime.startsWith("image/") && mime !== "image/svg+xml"
+  return mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet"
 }
 
 function isTextualMime(mime: string) {

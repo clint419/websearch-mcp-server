@@ -12,6 +12,7 @@ const PROVIDER = (process.env.WEBSEARCH_PROVIDER || "exa") as "exa" | "parallel"
 const MAX_RETRIES = 2;
 const BASE_DELAY_MS = 1000;
 const TIMEOUT_MS = 25_000;
+const MAX_RESPONSE_BYTES = 256 * 1024;
 
 interface McpRpcRequest {
   jsonrpc: "2.0";
@@ -111,6 +112,8 @@ async function callExa(args: {
 
     if (!res.ok) throw new Error(`Exa returned ${res.status}`);
     const text = await res.text();
+    if (Buffer.byteLength(text, "utf8") > MAX_RESPONSE_BYTES)
+      throw new Error(`Exa response exceeded ${MAX_RESPONSE_BYTES} bytes`);
     return parseResponse(text) || "No results found.";
   } finally {
     clearTimeout(timeout);
@@ -153,6 +156,8 @@ async function callParallel(args: {
 
     if (!res.ok) throw new Error(`Parallel returned ${res.status}`);
     const text = await res.text();
+    if (Buffer.byteLength(text, "utf8") > MAX_RESPONSE_BYTES)
+      throw new Error(`Parallel response exceeded ${MAX_RESPONSE_BYTES} bytes`);
     return parseResponse(text) || "No results found.";
   } finally {
     clearTimeout(timeout);
